@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fluid Calculator — Interactive</title>
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --muted:#94a3b8; --accent:#7c5cff; --accent-2:#00d4ff; --glass: rgba(255,255,255,0.04);
+      --glass-2: rgba(255,255,255,0.02);
+      --text:#e6eef8; --danger:#ff6b6b;
+      --radius:18px;
+      --soft-shadow: 12px 20px 40px rgba(2,6,23,0.6);
+    }
+
+    /* Light theme overrides */
+    :root[data-theme='light']{
+      --bg: linear-gradient(180deg,#f6f8fb,#eef3fb);
+      --card: rgba(255,255,255,0.85);
+      --muted:#5b6b7a; --accent:#6b8cff; --accent-2:#22c1ff; --text:#0b1220; --glass: rgba(11,18,32,0.03); --soft-shadow: 10px 18px 30px rgba(16,24,40,0.06);
+    }
+
+    /* Pastel theme */
+    :root[data-theme='pastel']{
+      --bg: linear-gradient(135deg,#fff1f8,#f0fbff);
+      --card: rgba(255,255,255,0.9);
+      --muted:#6b6b7a; --accent:#ff8fb8; --accent-2:#8ee7d6; --text:#1a1f2b; --glass: rgba(255,255,255,0.6);
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;}
+
+    body{
+      background: var(--bg);
+      display:flex;align-items:center;justify-content:center;padding:36px;transition:background 600ms ease;
+      -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;color:var(--text);
+    }
+
+    .stage{width:min(460px,96vw);}
+
+    .card{
+      border-radius:var(--radius);padding:20px;backdrop-filter: blur(8px) saturate(120%);
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+      box-shadow: var(--soft-shadow);
+      transition:transform 450ms cubic-bezier(.2,.8,.2,1),box-shadow 350ms ease,background 450ms ease;
+    }
+
+    header.calc-header{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .brand{display:flex;align-items:center;gap:12px}
+    .logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:grid;place-items:center;color:white;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,0.25)}
+    .title{font-size:1.05rem;font-weight:600}
+    .subtitle{font-size:0.78rem;color:var(--muted);margin-top:2px}
+
+    .controls{display:flex;gap:8px;align-items:center}
+    .btn{border:0;padding:8px 12px;border-radius:10px;background:var(--glass);color:var(--text);cursor:pointer;font-weight:600;letter-spacing:0.2px;transition:transform 180ms ease,box-shadow 220ms ease}
+    .btn:active{transform:translateY(2px) scale(.995)}
+
+    .theme-toggle{display:flex;align-items:center;gap:8px}
+
+    .screen{border-radius:14px;padding:18px 18px 16px;margin-bottom:14px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);min-height:110px;display:flex;flex-direction:column;justify-content:center}
+    .topline{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-weight:600}
+    .expression{font-size:0.9rem;color:var(--muted);max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .result{font-size:2.1rem;font-weight:700;margin-top:6px;letter-spacing:0.6px;transition:transform 200ms ease,color 200ms}
+
+    .pad{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .key{padding:16px;border-radius:12px;background:var(--glass-2);border:1px solid rgba(255,255,255,0.03);display:grid;place-items:center;font-weight:700;font-size:1.05rem;cursor:pointer;user-select:none;transition:transform 160ms ease,box-shadow 200ms ease}
+    .key:active{transform:translateY(4px)}
+    .key.op{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.02));box-shadow:inset 0 -6px 16px rgba(0,0,0,0.12)}
+    .key.equal{grid-column:span 2;background:linear-gradient(90deg,var(--accent),var(--accent-2));color:white;box-shadow:0 10px 30px rgba(124,92,255,0.18);}
+
+    /* ripple */
+    .key{position:relative;overflow:hidden}
+    .ripple{position:absolute;border-radius:999px;transform:scale(0);opacity:0.7;pointer-events:none}
+
+    /* small screens tweak */
+    @media (max-width:420px){
+      .result{font-size:1.5rem}
+      .key{padding:14px;font-size:1rem}
+    }
+
+    /* focus ring for keyboard */
+    .key:focus{outline:2px solid rgba(255,255,255,0.06)}
+
+    /* subtle hover for larger screens */
+    @media (hover:hover){
+      .key:hover{transform:translateY(-4px)}
+      .btn:hover{transform:translateY(-3px)}
+    }
+
+    /* small footer */
+    .footer{margin-top:10px;color:var(--muted);font-size:0.78rem;display:flex;justify-content:space-between;align-items:center}
+    .palette{display:flex;gap:8px}
+    .swatch{width:28px;height:28px;border-radius:8px;cursor:pointer;border:2px solid rgba(255,255,255,0.06)}
+
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="card" id="card">
+      <header class="calc-header">
+        <div class="brand">
+          <div class="logo">C</div>
+          <div>
+            <div class="title">Fluid Calculator</div>
+            <div class="subtitle">Smooth UI • keyboard friendly • theme switch</div>
+          </div>
+        </div>
+        <div class="controls">
+          <div class="theme-toggle">
+            <button class="btn" id="themeBtn" title="Toggle theme">Theme</button>
+            <button class="btn" id="resetBtn" title="Reset">Reset</button>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <div class="screen" id="screen">
+          <div class="topline">
+            <div class="expression" id="expr">0</div>
+            <div class="top-right" id="mem"> </div>
+          </div>
+          <div class="result" id="res">0</div>
+        </div>
+
+        <div class="pad" id="pad">
+          <div class="key" data-val="C">C</div>
+          <div class="key" data-val="()">( )</div>
+          <div class="key" data-val="%">%</div>
+          <div class="key op" data-val="/">÷</div>
+
+          <div class="key" data-val="7">7</div>
+          <div class="key" data-val="8">8</div>
+          <div class="key" data-val="9">9</div>
+          <div class="key op" data-val="*">×</div>
+
+          <div class="key" data-val="4">4</div>
+          <div class="key" data-val="5">5</div>
+          <div class="key" data-val="6">6</div>
+          <div class="key op" data-val="-">−</div>
+
+          <div class="key" data-val="1">1</div>
+          <div class="key" data-val="2">2</div>
+          <div class="key" data-val="3">3</div>
+          <div class="key op" data-val="+">+</div>
+
+          <div class="key" data-val="0">0</div>
+          <div class="key" data-val=".">.</div>
+          <div class="key" id="del">⌫</div>
+          <div class="key equal" id="equals" data-val="=">=</div>
+        </div>
+
+        <div class="footer">
+          <div class="palette" aria-hidden>
+            <div class="swatch" data-theme="dark" style="background:linear-gradient(135deg,var(--accent),var(--accent-2))" title="Dark"></div>
+            <div class="swatch" data-theme="light" style="background:linear-gradient(135deg,#8bb7ff,#cfe9ff)" title="Light"></div>
+            <div class="swatch" data-theme="pastel" style="background:linear-gradient(135deg,#ffb3d0,#b7fff0)" title="Pastel"></div>
+          </div>
+          <div style="opacity:0.9">Tip: Use keyboard (numbers + +-*/ Enter Backspace)</div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // Small, readable calculator engine with UI niceties
+    (function(){
+      const exprEl = document.getElementById('expr');
+      const resEl = document.getElementById('res');
+      const pad = document.getElementById('pad');
+      const equals = document.getElementById('equals');
+      const del = document.getElementById('del');
+      const themeBtn = document.getElementById('themeBtn');
+      const resetBtn = document.getElementById('resetBtn');
+      const swatches = document.querySelectorAll('.swatch');
+      const root = document.documentElement;
+
+      let expression = '';
+      let lastWasEqual = false;
+
+      function updateScreen(){
+        exprEl.textContent = expression || '0';
+        animateResult();
+      }
+
+      function animateResult(){
+        resEl.style.transform = 'translateY(-6px)';
+        setTimeout(()=> resEl.style.transform = 'translateY(0)',150);
+      }
+
+      function safeEval(input){
+        // replace smart chars and guard basics
+        try{
+          const sanitized = input.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');
+          // prevent letters
+          if(/[a-zA-Z]/.test(sanitized)) throw new Error('Invalid');
+          // quick replace for percentage: treat as /100
+          const withPercent = sanitized.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
+          // eslint-disable-next-line no-new-func
+          return Function('return '+withPercent)();
+        }catch(e){
+          return 'Error';
+        }
+      }
+
+      function press(val){
+        if(val === 'C'){
+          expression=''; resEl.textContent='0'; lastWasEqual=false; updateScreen(); return;
+        }
+        if(val === '()'){
+          // smart paren: add '(' or ')' depending
+          const open = (expression.match(/\(/g)||[]).length;
+          const close = (expression.match(/\)/g)||[]).length;
+          expression += (open === close) ? '(' : ')';
+          lastWasEqual=false; updateScreen(); return;
+        }
+        if(val === '%'){
+          expression += '%'; lastWasEqual=false; updateScreen(); return;
+        }
+        if(val === '.'){
+          // prevent multiple dots in current number
+          const parts = expression.split(/[^0-9.]/);
+          const cur = parts[parts.length-1];
+          if(cur.includes('.')) return; // ignore
+          expression += '.'; lastWasEqual=false; updateScreen(); return;
+        }
+        if(val === '='){
+          const out = safeEval(expression || '0');
+          resEl.textContent = (out === 'Error') ? out : Number(out).toString();
+          lastWasEqual=true; expression = (out === 'Error') ? '' : String(out);
+          updateScreen(); return;
+        }
+        // digits and operators
+        if(/[0-9]/.test(val)){
+          if(lastWasEqual){ expression = ''; lastWasEqual=false }
+          expression += val; updateScreen(); return;
+        }
+        if(/[+\-*/]/.test(val)){
+          // avoid duplicate operators
+          if(expression === '' && val !== '-') return; // don't allow starting with + or */
+          if(/[+\-*/]$/.test(expression)){
+            expression = expression.slice(0,-1) + val; updateScreen(); return;
+          }
+          expression += val; lastWasEqual=false; updateScreen(); return;
+        }
+      }
+
+      pad.addEventListener('click', (e)=>{
+        const k = e.target.closest('.key');
+        if(!k) return;
+        const val = k.dataset.val;
+        createRipple(e,k);
+        if(k.id === 'del'){
+          expression = expression.slice(0,-1); updateScreen(); return;
+        }
+        if(val === '='){ press('='); return; }
+        press(val);
+      });
+
+      equals.addEventListener('click',(e)=>{ createRipple(e,equals) });
+
+      del.addEventListener('click',(e)=>{ createRipple(e,del) });
+
+      // keyboard support
+      window.addEventListener('keydown', (e)=>{
+        const map = {Enter:'=', '=':'=', '\n':'='};
+        if(e.key === 'Backspace'){ expression = expression.slice(0,-1); updateScreen(); createKeyFlash(); e.preventDefault(); return; }
+        if(e.key === 'Escape'){ expression=''; resEl.textContent='0'; updateScreen(); return; }
+        if(e.key === '%'){ press('%'); e.preventDefault(); return; }
+        if('0123456789.+-*/()'.includes(e.key)){
+          press(e.key);
+          e.preventDefault();
+        }
+        if(e.key === 'Enter') { press('='); e.preventDefault(); }
+      });
+
+      // theme handling
+      let currentTheme = localStorage.getItem('calc-theme') || 'dark';
+      root.setAttribute('data-theme',currentTheme);
+
+      themeBtn.addEventListener('click', ()=>{
+        const order = ['dark','light','pastel'];
+        let idx = order.indexOf(currentTheme);
+        idx = (idx+1) % order.length; currentTheme = order[idx]; root.setAttribute('data-theme',currentTheme); localStorage.setItem('calc-theme',currentTheme);
+      });
+
+      resetBtn.addEventListener('click', ()=>{ localStorage.removeItem('calc-theme'); currentTheme='dark'; root.setAttribute('data-theme',currentTheme); });
+
+      swatches.forEach(s=> s.addEventListener('click', ()=>{ const t = s.dataset.theme; currentTheme=t; root.setAttribute('data-theme',t); localStorage.setItem('calc-theme',t); }));
+
+      function createRipple(ev,el){
+        const r = document.createElement('span');
+        r.className='ripple';
+        el.appendChild(r);
+        const rect = el.getBoundingClientRect();
+        const size = Math.max(rect.width,rect.height)*1.6;
+        r.style.width = r.style.height = size+'px';
+        const x = (ev.clientX - rect.left) - size/2;
+        const y = (ev.clientY - rect.top) - size/2;
+        r.style.left = x+'px'; r.style.top = y+'px';
+        r.style.background = 'rgba(255,255,255,0.08)';
+        r.animate([{transform:'scale(0)',opacity:0.6},{transform:'scale(1)',opacity:0}],{duration:450,easing:'cubic-bezier(.2,.8,.2,1)'});
+        setTimeout(()=> r.remove(),480);
+      }
+
+      function createKeyFlash(){
+        const el = document.querySelector('.card');
+        el.animate([{transform:'translateY(0)'},{transform:'translateY(-6px)'},{transform:'translateY(0)'}],{duration:180});
+      }
+
+      // init
+      updateScreen();
+
+    })();
+  </script>
+</body>
+</html>
